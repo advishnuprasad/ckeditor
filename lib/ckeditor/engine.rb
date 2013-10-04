@@ -3,34 +3,25 @@ require 'ckeditor'
 
 module Ckeditor
   class Engine < ::Rails::Engine
-    
-    initializer "ckeditor.assets_precompile", :group => :all do |app|
-      app.config.assets.precompile += Ckeditor.assets
+    initializer "ckeditor_engine.add_middleware" do |app|
+      app.middleware.insert_before(
+        ActionDispatch::Cookies,
+        "Ckeditor::Middleware",
+        app.config.send(:session_options)[:key])
     end
-    
-    initializer "ckeditor.helpers" do
-      ActiveSupport.on_load(:action_controller) do
-        ActionController::Base.send :include, Ckeditor::Helpers::Controllers
-      end
-    
-      ActiveSupport.on_load :action_view do
-        ActionView::Base.send :include, Ckeditor::Helpers::ViewHelper
-        ActionView::Base.send :include, Ckeditor::Helpers::FormHelper
-        ActionView::Helpers::FormBuilder.send :include, Ckeditor::Helpers::FormBuilder
-      end
-    end
-    
-    initializer "ckeditor.hooks" do
+
+    config.after_initialize do
+      ActionView::Base.send :include, Ckeditor::ViewHelper
+      ActionView::Helpers::FormBuilder.send :include, Ckeditor::FormBuilder
+      
+      ActionView::Helpers::AssetTagHelper.register_javascript_expansion :ckeditor => ["ckeditor/ckeditor"]
+      
       if Object.const_defined?("Formtastic")
-        require "ckeditor/hooks/formtastic"
+        ::Formtastic::SemanticFormBuilder.send :include, Ckeditor::Hooks::FormtasticBuilder
       end
       
       if Object.const_defined?("SimpleForm")
-        require "ckeditor/hooks/simple_form"
-      end
-
-      if Object.const_defined?("CanCan")
-        require "ckeditor/hooks/cancan"
+        ::SimpleForm::FormBuilder.send :include, Ckeditor::Hooks::SimpleFormBuilder
       end
     end
   end
